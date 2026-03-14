@@ -79,13 +79,14 @@ jobs:
 
     # 7. 上传结果文件
     - name: 上传结果文件
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.0
       with:
         name: monitoring-results-${{ github.run_number }}
         path: |
           output/*.json
           output/*.txt
         retention-days: 30
+        if-no-files-found: error
 
     # 8. 发送邮件通知（包含AI提示词）
     - name: 发送邮件通知
@@ -100,24 +101,24 @@ jobs:
         to: ${{ secrets.TO_ADDRS }}
         from: ${{ secrets.FROM_ADDR }}
         body: |
-          📅 监控周期：${{ github.event.head_commit.timestamp }}
+          📅 监控日期：${{ github.event.head_commit.timestamp || '手动触发' }}
 
           ✅ 监控任务执行完成！
 
           📊 任务详情：
           - 工作流运行编号：${{ github.run_number }}
           - 触发方式：${{ github.event_name }}
-          - 提交信息：${{ github.event.head_commit.message }}
+          - 提交信息：${{ github.event.head_commit.message || '无提交信息' }}
 
           📁 生成的文件：
-          - 数据文件：查看工作流Artifacts
-          - AI提示词：查看工作流Artifacts
+          - 数据文件：查看工作流 Artifacts (monitoring-results-${{ github.run_number }})
+          - AI 提示词：查看工作流 Artifacts (monitoring-results-${{ github.run_number }})
 
           🤖 下一步操作：
-          1. 从工作流Artifacts下载文件
+          1. 从工作流 Artifacts 下载文件
           2. 打开 ai_prompt_*.txt 文件
           3. 复制全部内容
-          4. 粘贴给AI助手生成报告
+          4. 粘贴给 AI 助手生成报告
 
           🔗 查看完整详情：
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -130,28 +131,28 @@ jobs:
           <html>
           <body style="font-family: Arial, sans-serif;">
             <h2 style="color: #2196f3;">📊 国际物流监控报告</h2>
-            <p><strong>📅 监控周期：</strong>${{ github.event.head_commit.timestamp }}</p>
+            <p><strong>📅 监控日期：</strong>${{ github.event.head_commit.timestamp || '手动触发' }}</p>
             <p>✅ <strong>监控任务执行完成！</strong></p>
 
             <h3>📊 任务详情：</h3>
             <ul>
               <li>工作流运行编号：<strong>${{ github.run_number }}</strong></li>
               <li>触发方式：${{ github.event_name }}</li>
-              <li>提交信息：${{ github.event.head_commit.message }}</li>
+              <li>提交信息：${{ github.event.head_commit.message || '无提交信息' }}</li>
             </ul>
 
             <h3>📁 生成的文件：</h3>
             <ul>
-              <li>数据文件：查看工作流Artifacts</li>
-              <li>AI提示词：查看工作流Artifacts</li>
+              <li>数据文件：查看工作流 Artifacts</li>
+              <li>AI 提示词：查看工作流 Artifacts</li>
             </ul>
 
             <h3>🤖 下一步操作：</h3>
             <ol>
-              <li>从工作流Artifacts下载文件</li>
+              <li>从工作流 Artifacts 下载文件</li>
               <li>打开 ai_prompt_*.txt 文件</li>
               <li>复制全部内容</li>
-              <li>粘贴给AI助手生成报告</li>
+              <li>粘贴给 AI 助手生成报告</li>
             </ol>
 
             <p style="margin-top: 20px;">
