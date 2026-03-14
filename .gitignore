@@ -5,7 +5,8 @@ __pycache__/
 venv/
 ENV/
 *.json
-*.txt
+output/*.txt
+output/*.json
 output/
 .idea/
 .vscode/
