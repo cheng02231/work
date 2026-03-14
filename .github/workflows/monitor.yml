@@ -1,0 +1,196 @@
+name: 国际物流监控自动化
+
+on:
+  # 每周五下午5点（UTC时间9点，中国时间17点）执行
+  schedule:
+    - cron: '0 9 * * 5'
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: '测试模式'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+    steps:
+    # 1. 检出代码
+    - name: 检出代码
+      uses: actions/checkout@v6
+
+    # 2. 设置Python环境
+    - name: 设置Python环境
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+
+    # 3. 安装依赖
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    # 4. 创建输出目录
+    - name: 创建输出目录
+      run: |
+        mkdir -p output
+
+    # 5. 运行监控脚本（简化版，自动模式）
+    - name: 运行监控脚本
+      id: monitor
+      run: |
+        # 设置环境变量
+        export RUN_ENV=github_actions
+        export AUTO_MODE=${{ inputs.test_mode }}
+
+        # 检查是否为测试模式
+        if [ "$AUTO_MODE" = "true" ]; then
+          echo "🧪 测试模式：生成示例数据"
+          python github_auto_monitor.py --test-mode
+        else
+          echo "🚀 生产模式：实际运行监控"
+          # 注意：实际运行需要提供数据
+          # 这里我们先生成提示词，然后发送给AI
+          python github_auto_monitor.py
+        fi
+      env:
+        # 从GitHub Secrets读取配置
+        SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_USER: ${{ secrets.SMTP_USER }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        FROM_ADDR: ${{ secrets.FROM_ADDR }}
+        TO_ADDRS: ${{ secrets.TO_ADDRS }}
+
+    # 6. 生成AI提示词
+    - name: 生成AI提示词
+      id: prompt
+      run: |
+        python generate_ai_prompt.py
+
+    # 7. 上传结果文件
+    - name: 上传结果文件
+      uses: actions/upload-artifact@v4
+      with:
+        name: monitoring-results-${{ github.run_number }}
+        path: |
+          output/*.json
+          output/*.txt
+        retention-days: 30
+
+    # 8. 发送邮件通知（包含AI提示词）
+    - name: 发送邮件通知
+      if: success()
+      uses: dawidd6/action-send-mail@v14
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USER }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: '📊 国际物流监控报告 - ${{ github.event.repository.name }} - ${{ github.run_number }}'
+        to: ${{ secrets.TO_ADDRS }}
+        from: ${{ secrets.FROM_ADDR }}
+        body: |
+          📅 监控周期：${{ github.event.head_commit.timestamp }}
+
+          ✅ 监控任务执行完成！
+
+          📊 任务详情：
+          - 工作流运行编号：${{ github.run_number }}
+          - 触发方式：${{ github.event_name }}
+          - 提交信息：${{ github.event.head_commit.message }}
+
+          📁 生成的文件：
+          - 数据文件：查看工作流Artifacts
+          - AI提示词：查看工作流Artifacts
+
+          🤖 下一步操作：
+          1. 从工作流Artifacts下载文件
+          2. 打开 ai_prompt_*.txt 文件
+          3. 复制全部内容
+          4. 粘贴给AI助手生成报告
+
+          🔗 查看完整详情：
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ---
+          此邮件由国际物流监控系统自动发送
+        priority: high
+        html_body: |
+          <!DOCTYPE html>
+          <html>
+          <body style="font-family: Arial, sans-serif;">
+            <h2 style="color: #2196f3;">📊 国际物流监控报告</h2>
+            <p><strong>📅 监控周期：</strong>${{ github.event.head_commit.timestamp }}</p>
+            <p>✅ <strong>监控任务执行完成！</strong></p>
+
+            <h3>📊 任务详情：</h3>
+            <ul>
+              <li>工作流运行编号：<strong>${{ github.run_number }}</strong></li>
+              <li>触发方式：${{ github.event_name }}</li>
+              <li>提交信息：${{ github.event.head_commit.message }}</li>
+            </ul>
+
+            <h3>📁 生成的文件：</h3>
+            <ul>
+              <li>数据文件：查看工作流Artifacts</li>
+              <li>AI提示词：查看工作流Artifacts</li>
+            </ul>
+
+            <h3>🤖 下一步操作：</h3>
+            <ol>
+              <li>从工作流Artifacts下载文件</li>
+              <li>打开 ai_prompt_*.txt 文件</li>
+              <li>复制全部内容</li>
+              <li>粘贴给AI助手生成报告</li>
+            </ol>
+
+            <p style="margin-top: 20px;">
+              <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                 style="background-color: #2196f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+                🔗 查看完整详情
+              </a>
+            </p>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+            <p style="color: #999; font-size: 12px;">此邮件由国际物流监控系统自动发送</p>
+          </body>
+          </html>
+
+    # 9. 失败时发送错误通知
+    - name: 发送错误通知
+      if: failure()
+      uses: dawidd6/action-send-mail@v14
+      with:
+        server_address: ${{ secrets.SMTP_SERVER }}
+        server_port: ${{ secrets.SMTP_PORT }}
+        username: ${{ secrets.SMTP_USER }}
+        password: ${{ secrets.SMTP_PASSWORD }}
+        subject: '❌ 国际物流监控失败 - ${{ github.event.repository.name }}'
+        to: ${{ secrets.TO_ADDRS }}
+        from: ${{ secrets.FROM_ADDR }}
+        body: |
+          ⚠️ 监控任务执行失败！
+
+          📊 任务详情：
+          - 工作流运行编号：${{ github.run_number }}
+          - 触发方式：${{ github.event_name }}
+          - 提交信息：${{ github.event.head_commit.message }}
+
+          🔗 查看失败详情：
+          ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          请检查工作流日志以排查问题。
+
+          ---
+          此邮件由国际物流监控系统自动发送
+        priority: urgent
